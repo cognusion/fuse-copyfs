@@ -1,0 +1,61 @@
+TARGET	= fcopyfs-daemon
+SRC	= cache.c	\
+	  create.c	\
+	  ea.c		\
+	  helper.c	\
+	  interface.c	\
+	  lookup.c	\
+	  main.c	\
+	  parse.c	\
+	  write.c
+HEADERS	= cache.h	\
+	  create.h	\
+	  ea.h		\
+	  helper.h	\
+	  parse.h	\
+	  rcs.h		\
+	  structs.h	\
+	  write.h
+SCRIPTS = fmount fversion
+EXTRA	= $(SCRIPTS) Makefile.in configure.in configure README
+OBJ	= $(SRC:.c=.o)
+
+CC	= gcc
+CFLAGS	= -Wall -ansi -W -std=c99 -g -ggdb -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+LIBS	= -lfuse
+
+all: $(TARGET)
+
+install: $(TARGET) $(SCRIPTS)
+	install -o root -g root -m 755 $(TARGET) /usr/local/bin
+	install -o root -g root -m 755 $(SCRIPTS) /usr/local/bin
+
+clean:
+	rm -f *~ $(OBJ) \#*\#
+
+distclean: clean
+	rm -f $(TARGET)
+
+dist:
+	mkdir /tmp/copyfs-dist
+	mkdir /tmp/copyfs-dist/copyfs-1.0
+	cp $(SRC) $(HEADERS) $(EXTRA) /tmp/copyfs-dist/copyfs-1.0
+	cd /tmp/copyfs-dist && tar jcvf copyfs-1.0.tar.bz2 copyfs-1.0
+	cp /tmp/copyfs-dist/copyfs-1.0.tar.bz2 .
+	rm -rf /tmp/copyfs-dist
+
+$(TARGET): $(OBJ)
+	gcc -o $(TARGET) $(OBJ) $(LIBS)
+
+# Dependencies (use gcc -MM -D_FILE_OFFSET_BITS=64 *.c to regenerate)
+
+cache.o: cache.c helper.h structs.h cache.h rcs.h
+create.o: create.c helper.h structs.h write.h rcs.h create.h cache.h
+ea.o: ea.c helper.h structs.h write.h rcs.h ea.h
+helper.o: helper.c helper.h rcs.h structs.h
+interface.o: interface.c helper.h cache.h structs.h rcs.h create.h \
+  write.h ea.h
+lookup.o: lookup.c helper.h structs.h parse.h cache.h rcs.h
+main.o: main.c helper.h structs.h cache.h create.h
+parse.o: parse.c helper.h structs.h
+write.o: write.c helper.h structs.h write.h

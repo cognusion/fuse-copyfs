@@ -1,0 +1,162 @@
+
+      ,ad8888ba,                                      88888888888 ad88888ba
+     d8"'    `"8b                                     88         d8"     "8b
+    d8'                                               88         Y8,
+    88             ,adPPYba,  8b,dPPYba,  8b       d8 88aaaaa    `Y8aaaaa,
+    88            a8"     "8a 88P'    "8a `8b     d8' 88"""""      `"""""8b,
+    Y8,           8b       d8 88       d8  `8b   d8'  88                 `8b
+     Y8a.    .a8P "8a,   ,a8" 88b,   ,a8"   `8b,d8'   88         Y8a     a8P
+      `"Y8888Y"'   `"YbbdP"'  88`YbbdP"'      Y88'    88          "Y88888P"
+                              88              d8'
+                              88             d8'
+
+                    A copy-on-write, versionned filesystem
+
+                                    By
+                               Nicolas Vigier
+                               Thomas Joubert
+
+
+
+CopyFS aims to solve a common problem : given a directory, especially one
+full of configuration files, or other files that one can modify, and which
+can affect the functionning of a system, or of programs, that may be important
+to other users (or to the user himself), how to be sure that a person
+modifying the files will do a backup of the working version first ?
+
+This filesystem solves the problem by making the whole process transparent,
+automatically keeping versionned copies of all the changes done to file under
+its control.
+
+It also allows a user to select an old version of the files, for example to
+repair a mistake, and allows him/her to continue edition from this point.
+
+
+System requirements
+-------------------
+
+You need a Linux-based system, with at least version 2.0 of the Fuse libraries
+and kernel module. You can download Fuse at http://fuse.sourceforge.net. You
+also need the support for filesystem extended attributes compiled in your
+kernel.
+
+
+How to install
+--------------
+
+Simply do :
+
+copyfs-1.0 % ./configure
+copyfs-1.0 % make all
+copyfs-1.0 % su
+Password:
+copyfs-1.0 # make install
+
+
+How to use
+----------
+
+To mount a CopyFS, you need to use the command 'fmount' : if you want to
+mount a CopyFS at '/mnt/fs', whose version directory is at /var/versions, you
+would use :
+
+root # fmount /var/versions /mnt/fs
+
+To unmount it, simply do :
+
+root # umount /mnt/fs
+
+As you would do for a normal filesystem.
+
+
+Accessing old versions
+----------------------
+
+To know which versions are available, you can use the fversion tool :
+
+cpy-fs $ fversion test
+File test ('*' is active) :
+  v1.0  : -rw-r--r--  widan    users             0 Fri Dec 10 14:17:47 2004
+  v2.0  : -rw-r--r--  widan    users            21 Fri Dec 10 14:17:55 2004
+  v2.1  : -rwx------  widan    users            21 Fri Dec 10 14:17:55 2004
+  v3.0  : -rwx------  widan    users            29 Fri Dec 10 14:19:35 2004 [*]
+
+You know there are 4 versions, with their associated information. In that state
+you are viewing version 3.0 (ie the last one). If you want to see another one,
+you can 'lock' it :
+
+cpy-fs $ cat test
+version 3.0
+cpy-fs $ fversion -l 2.0 test
+cpy-fs $ cat test
+version 2.0
+
+If you want to remove the version lock, and return to the latest version
+available, use :
+
+cpy-fs $ fversion -r test
+
+
+Tagging files
+-------------
+
+Let's say you have the following file tree :
+
+cpy-fs $ fversion somedir/file-1
+File file-1 ('*' is active) :
+  v1.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:41 2004
+  v2.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:43 2004 [*]
+  v3.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:45 2004
+cpy-fs $ fversion somedir/file-2
+File file-2 ('*' is active) :
+  v1.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:51 2004 [*]
+  v2.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:53 2004
+cpy-fs $ fversion somedir/file-3
+File file-3 ('*' is active) :
+  v1.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:58 2004
+  v2.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:22:03 2004 [*]
+
+You have :
+
+cpy-fs $ cat somedir/file-1
+v2
+cpy-fs $ cat somedir/file-2
+2 v1
+cpy-fs $ cat somedir/file-3
+3 v2
+
+Suppose you want to save all the "current" versions for the directory
+'somedir', you can create a tag file with :
+
+cpy-fs $ fversion -t tag-file somedir
+
+Then you can edit the files as you want, and if you want to put all the files
+back to the version they were at when you tagged them, simply do :
+
+cpy-fs $ fversion -u tag-file somedir
+
+Example :
+
+cpy-fs $ echo "new 1" > somedir/file-1
+cpy-fs $ echo "new 2" > somedir/file-2
+cpy-fs $ cat somedir/file-{1,2,3}
+new 1
+new 2
+3 v2
+cpy-fs $ fversion -t tag-file-new somedir
+cpy-fs $ fversion -u tag-file somedir
+Restored somedir/file-1 to version 2.0
+Restored somedir/file-2 to version 1.0
+Restored somedir/file-3 to version 2.0
+cpy-fs $ cat somedir/file-{1,2,3}
+v2
+2 v1
+3 v2
+cpy-fs $ fversion -u tag-file-new somedir
+Restored somedir/file-1 to version 6.0
+Restored somedir/file-2 to version 3.0
+Restored somedir/file-3 to version 2.0
+cpy-fs $ cat somedir/file-{1,2,3}
+new 1
+new 2
+3 v2
