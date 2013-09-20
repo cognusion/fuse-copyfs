@@ -2,7 +2,7 @@
 .SH NAME
 copyfs-fversion
 .SH SYNOPSIS
-.B copyfs-fversion [-h] [-r] [-s] [-l version] [-g] file
+.B copyfs-fversion [-h] [-r] [-s] [-l version] [-g] [-d v1,v2] [-G string] [-p n|A] file
 [\fIOPTIONS\fR]...
 .SH DESCRIPTION
 This is the copyfs-fversion program. This programs lets you see and change versions informations on files hosted on a copyfs file system.
@@ -21,6 +21,15 @@ Get the version number in use
 .TP
 \fB\-l\fR \fIversion\fR
 Lock this version
+.TP
+\fB\-d\fR \fIv1,v2\fR
+Show the diff of two versions
+.TP
+\fB\-G\fR \fIstring\fR
+Search all versions of a file for a string
+.TP
+\fB\-p\fR \fIn|A\fR
+Purge the oldest n versions of the file or A for All
 .TP
 \fB\-t\fR \fItagfile\fR
 Create a tagfile. This tagfile will contain the versions informations about the selected files. You can then restore thoses version later using this tagfile.
