@@ -1,11 +1,5 @@
 #!/usr/bin/perl -w
 
-# copyfs - copy on write filesystem  http://n0x.org/copyfs/
-# Copyright (C) 2004 Nicolas Vigier <boklm@mars-attacks.org>
-#                    Thomas Joubert <widan@net-42.eu.org>
-# This program can be distributed under the terms of the GNU GPL.
-# See the file COPYING.
-
 use strict;
 use warnings;
 
@@ -17,10 +11,23 @@ use Fcntl ':mode';
 use File::Basename;
 use File::stat;
 
+use Algorithm::Diff qw(diff);
+use Time::HiRes qw(sleep);
+
 use Errno;
 
 use Getopt::Std;
 
+my $MAJOR=0;
+my $MINOR=0;
+
+$SIG{__DIE__} = sub {
+	# We're dying, make sure we're safe!
+	if($MAJOR) {
+		set_current_version($ARGV[0],$MAJOR,$MINOR);
+	}
+	die @_;
+};
 
 #
 # Run a command, and returns both output and error.
@@ -123,6 +130,16 @@ sub set_current_version($$$)
 }
 
 #
+# Purges a file completely ... Scary!!
+#
+sub purge_file($$) {
+	my ($file, $pflag) = @_;
+	
+	my($value, $error) = set_ea($file, "rcs.purge", "$pflag");
+	die "$0: $error" if $error;
+}
+
+#
 # Dump a mode into an ls-like string.
 #
 sub get_perms($)
@@ -188,6 +205,8 @@ sub dump_group($)
 
 #
 # Dump the version information for a file.
+# NOTE: To increase utility, this functil now returns an array
+# of lines it would have printed, instead of printf'ing them. -M@
 #
 sub dump_versions($)
 {
@@ -199,9 +218,11 @@ sub dump_versions($)
     # Get the attribute
     my ($value, $error) = get_ea($file, "rcs.metadata_dump");
     die "$0: $error" if $error;
+    
+    # Put what we want to print into an array:
+    my @dumplines;
 
-    printf("File %s (%s is active) :\n", $file,
-	   ($cvid != -1) ? "'*'" : "last");
+	push(@dumplines, "File $file ('*' is active) :\n");
 
     # Explode the attributes
     my @versions = reverse(split(/\|/, $value));
@@ -210,14 +231,16 @@ sub dump_versions($)
 	my ($vid, $svid, $mode, $uid, $gid, $size,
 	    $mtime) = split(/:/, $vstring);
 
-	# Display it
-	printf("  v%-4.4s : %s  %-8.8s %-8.8s %10i %s", "$vid.$svid",
+	
+	my $vline=sprintf("  v%-4.4s : %s  %-8.8s %-8.8s %10i %s", "$vid.$svid",
 	       get_perms($mode), dump_owner($uid), dump_group($gid),
 	       $size, strftime("%c", localtime($mtime)));
 
-	printf(" [*]") if (($cvid == $vid) && ($csvid == $svid));
-	printf("\n");
+	$vline .= sprintf(" [*]") if (($cvid == $vid) && ($csvid == $svid));
+	$vline .= "\n";
+	push(@dumplines,$vline);
     }
+    return @dumplines;
 }
 
 #
@@ -328,7 +351,124 @@ sub restore_tag_file($$)
     close TAG;
 }
 
+#
+# Diff a pair of text files - mgk
+#
+sub get_diff($$$$$) {
+		my($file,$v1,$v2,$v3,$v4)=@_;
+		
+		# Test for textyness
+		unless(-T $file) {
+			print STDERR "I will not diff binary files\n";
+			return(1);
+		}
 
+		# Preserve the current version
+		($MAJOR,$MINOR)=get_current_version($file);
+		
+		# Set the version to the first version
+		set_current_version($file,$v1,$v2);
+		# Get the file
+		if(!open(TFA,"<$file")) {
+			# Balk, reset version, and bail
+			print STDERR "Problem reading $file v$v1.$v2 : $!\n";
+			set_current_version($file,$MAJOR,$MINOR);
+			return(1);
+		} 
+		my @lines1=<TFA>;
+		close TFA;
+
+		# Set the version to the second version
+		set_current_version($file,$v3,$v4); 
+		# Get the file
+		if(!open(TFB,"<$file")) {
+			# Balk, reset version, and bail
+			print STDERR "Problem reading $file v$v3.$v4 : $!\n";
+			set_current_version($file,$MAJOR,$MINOR);
+			return(1);
+		} 
+		my @lines2=<TFB>;
+		close TFB;
+
+		#chomp @lines1;
+		#chomp @lines2;
+		
+		# Reset the current version now
+		set_current_version($file, $MAJOR, $MINOR);
+		$MAJOR=0;
+		$MINOR=0;
+
+		# Diff it
+		my $diffs=diff(\@lines1,\@lines2);			
+		return(0) unless @$diffs; # No diff
+
+		foreach my $chunk (@$diffs) {
+			foreach my $line (@$chunk) {
+				my($sign,$lineno,$text)=@$line;
+				print $lineno+1 . " $sign $text";
+				unless($text =~ /\n$/) { print "\n"; }
+			}
+			print "--------\n";
+		}
+
+    	return(0);
+}
+
+#
+# Search the versions for $pattern
+#
+sub grep_versions($$) {
+	my($file,$pattern)=@_;
+	
+	# Test for textyness
+	unless(-T $file) {
+		print STDERR "I will not diff binary files\n";
+		return(1);
+	}
+		
+	# This statement doesn't really matter, because CopyFS is unithreaded, YAY!!!
+	# But we'll say it anyhow because, well, people suck and probably will break it anyhow.
+	print "Do not mess with this file... search in progress...\n";
+	
+	# Preserve the current version
+	($MAJOR,$MINOR)=get_current_version($file);
+	
+	my @dump=dump_versions($file);
+	shift @dump; # Get rid of the header
+	my $hits=0; # track the number of hits
+	my $obstatus=$|; # preserve the autoflush buffering status.
+	$|=1; # enable autoflush
+	for(@dump) {
+		chomp;
+		s/^\s+//; # get rid of leading ws that will mess up the split
+		my @pieces=split(/\s+/);
+		my $vers=$pieces[0];
+		$vers =~ s/^v//;
+		my($maj,$min)=split(/\./,$vers);
+		set_current_version($file,$maj,$min);
+		sleep(0.10); # we need to sleep here so there is enough time for set_current_version
+					 # to kick in. This will limit performance substantially... Oh well, it's
+					 # what we have to do. Because we're doing subsecond sleeps, this requires
+					 # the Time::HiRes function.
+		open(DF,"<$file") or die "Problem reading $maj.$min.. aborting\n";
+		# note, the above die is safe because we're trapping dies, because we forsaw this.
+		while(<DF>) {
+			if(/$pattern/) {
+				chomp;
+				print "v$maj.$min: $_\n";
+				$hits++;
+			}	
+		}
+		close(DF);
+	}	
+	print "$hits results.\n";
+	$|=$obstatus; # restore autoflush
+	set_current_version($file,$MAJOR,$MINOR); # restore current version
+	$MAJOR=0;
+	$MINOR=0;
+	
+	return 0;
+}
 
 # Strip the path
 $0 = basename($0);
@@ -336,11 +476,11 @@ $0 = basename($0);
 my %options = ();
 
 # Parse command line
-getopts("ghl:rst:u:", \%options);
+getopts("p:G:ghl:rst:d:u:", \%options);
 
 if ($options{h})
 {
-    printf("Usage: $0 [-h] [-r] [-s] [-l version] [-g] file\n");
+    printf("Usage: $0 [-h] [-r] [-s] [-l version] [-g] [-d v1,v2] [-G string] [-p n|A] file\n");
     printf("\n");
     printf("  -h           Show this help\n");
 
@@ -349,6 +489,10 @@ if ($options{h})
     printf("  -s           Show the versions for this file (default)\n");
     printf("  -g           Get the version number in use\n");
     printf("  -l version   Lock this version\n");
+    # Added by M@
+    printf("  -d v1,v2     Show the diff of two versions\n");
+    printf("  -G string    Search all versions of a file for a string\n");
+    printf("  -p n|A       Purge the oldest n versions of the file or A for All\n");
 
     # Tagging
     printf("  -t tagfile   Create a tag file\n");
@@ -366,7 +510,7 @@ if (scalar(@ARGV) != 1)
 # Show by default
 $options{s} = 1
     if (!$options{r} && !$options{g} && !$options{s} && !$options{l} &&
-	!$options{t} && !$options{u});
+	!$options{t} && !$options{u} && !$options{d} && !$options{p} && !$options{G});
 
 if ($options{r})
 {
@@ -383,7 +527,7 @@ if ($options{g})
 
 if ($options{s})
 {
-    dump_versions($ARGV[0]);
+    print dump_versions($ARGV[0]);
     exit(0);
 }
 
@@ -399,6 +543,47 @@ if ($options{l})
 	print STDERR "$0: This version number is incorrect (format is x.y)\n";
 	exit(1);
     }
+}
+
+if ($options{d})
+{
+	# Text diffs
+	if($options{d} =~ m/^(\d+).(\d+),(\d+).(\d+)$/)
+	{
+		exit get_diff($ARGV[0],$1,$2,$3,$4);
+	}
+	else
+	{
+		print STDERR "$0: The format is incorrect (format is x1.y1,x2.y2)\n";
+        exit(1);
+    }
+}
+
+if ($options{p})
+{
+	# Purges
+	unless(-f $ARGV[0]) {
+		print STDERR "$0: purging only supported for files at this time.\n";
+		exit(1);
+	} elsif($options{p} =~ m/^(\d+)$/) {
+		# Number specified
+		purge_file($ARGV[0],$1);
+	} elsif($options{p} eq "A") {
+		# All of them!
+		purge_file($ARGV[0],"A");
+	} else {
+		# Bad syntax!!
+		print STDERR "$0: RTFM: specify either a digit or 'A'\n";
+        exit(1);
+	}
+	exit(0);		
+}
+
+if ($options{G})
+{
+	# Interversion grep
+	exit grep_versions($ARGV[0],$options{G});
+	
 }
 
 if ($options{t})
