@@ -12,6 +12,7 @@ void		cache_initialize(void);
 void		cache_finalize(void);
 metadata_t	*cache_get_metadata(const char *vpath);
 void		cache_add_metadata(metadata_t *metadata);
+void 		cache_drop_metadata(const char *vpath);
 int		cache_find_maximal_match(char **array, metadata_t **result);
 
 #endif /* !CACHE_H */

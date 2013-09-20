@@ -11,12 +11,14 @@
                               88             d8'
 
                     A copy-on-write, versionned filesystem
+                                Version 1.3M
 
                                     By
                                Nicolas Vigier
                                Thomas Joubert
 
-
+                             Contributions From:
+                               Matthew Keller
 
 CopyFS aims to solve a common problem : given a directory, especially one
 full of configuration files, or other files that one can modify, and which
@@ -160,3 +162,84 @@ cpy-fs $ cat somedir/file-{1,2,3}
 new 1
 new 2
 3 v2
+
+Viewing the changes between version of text files
+-------------------------------------------------
+
+Example:
+
+[kellermg@mlap2 workspace]$ echo "Hello world" > testfile
+[kellermg@mlap2 workspace]$ echo "There's always room for JELLO" >> testfile
+[kellermg@mlap2 workspace]$ fversion testfile
+File testfile ('*' is active) :
+  v1.0  : -rw-rw-r--  kellermg kellermg         12 Mon 13 Feb 2006 12:59:28 PM EST
+  v2.0  : -rw-rw-r--  kellermg kellermg         42 Mon 13 Feb 2006 12:59:55 PM EST [*]
+[kellermg@mlap2 workspace]$ fversion -d 1.0,2.0 testfile
+2 -
+2 + There's always room for JELLO
+--------
+[kellermg@mlap2 workspace]$ cat testfile
+Hello world
+There's always room for JELLO
+
+We will balk if you try to diff a binary file:
+
+[kellermg@mlap2 copyfs]$ fversion -d 41.0,53.0 fcopyfs-daemon
+I will not diff binary files
+
+Searching (ala grep) for a pattern in all version of a text file
+----------------------------------------------------------------
+
+Example:
+
+[kellermg@mlap2 workspace]$ echo "Hello world" > testfile
+[kellermg@mlap2 workspace]$ echo "There's always room for JELLO" >> testfile
+[kellermg@mlap2 workspace]$ echo "Thanks for all the fish" >> testfile
+[kellermg@mlap2 workspace]$ echo "So long" >> testfile
+[kellermg@mlap2 workspace]$ echo "Blah Blah Blah" >> testfile
+[kellermg@mlap2 workspace]$ echo "Another fish" >> testfile
+[kellermg@mlap2 workspace]$ fversion -G fish testfile
+Do not mess with this file... search in progress...
+v3.0: Thanks for all the fish
+v4.0: Thanks for all the fish
+v5.0: Thanks for all the fish
+v6.0: Thanks for all the fish
+v6.0: Another fish
+5 results.
+
+You can also search for a regexp!:
+
+[kellermg@mlap2 workspace]$ fversion -G ^Blah testfile
+Do not mess with this file... search in progress...
+v5.0: Blah Blah Blah
+v6.0: Blah Blah Blah
+2 results.
+
+Purging (Culling) old versions of files
+---------------------------------------
+
+Purging of folders not yet supported... maybe someday. The recursions necessary scares me.
+
+Example:
+
+[kellermg@mlap2 workspace]$ fversion testfile
+File testfile ('*' is active) :
+  v1.0  : -rw-rw-r--  kellermg kellermg         12 Mon 13 Feb 2006 12:59:28 PM EST
+  v2.0  : -rw-rw-r--  kellermg kellermg         42 Mon 13 Feb 2006 12:59:55 PM EST
+  v3.0  : -rw-rw-r--  kellermg kellermg         66 Mon 13 Feb 2006 01:03:24 PM EST
+  v4.0  : -rw-rw-r--  kellermg kellermg         74 Mon 13 Feb 2006 01:04:44 PM EST
+  v5.0  : -rw-rw-r--  kellermg kellermg         89 Mon 13 Feb 2006 01:04:56 PM EST
+  v6.0  : -rw-rw-r--  kellermg kellermg        102 Mon 13 Feb 2006 01:05:02 PM EST [*]
+[kellermg@mlap2 workspace]$ fversion -p 3 testfile
+[kellermg@mlap2 workspace]$ fversion testfile
+File testfile ('*' is active) :
+  v4.0  : -rw-rw-r--  kellermg kellermg         74 Mon 13 Feb 2006 01:04:44 PM EST
+  v5.0  : -rw-rw-r--  kellermg kellermg         89 Mon 13 Feb 2006 01:04:56 PM EST
+  v6.0  : -rw-rw-r--  kellermg kellermg        102 Mon 13 Feb 2006 01:05:02 PM EST [*]
+
+Or you can just kill the very existance of the file:
+
+[kellermg@mlap2 workspace]$ fversion -p A testfile
+[kellermg@mlap2 workspace]$ fversion testfile
+fversion: testfile: No such file or directory
+

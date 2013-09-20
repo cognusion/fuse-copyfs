@@ -132,6 +132,22 @@ void cache_add_metadata(metadata_t *metadata)
 }
 
 /*
+ * Null out the bucket... This probably isn't a wonderful
+ * way to do it, but it works, and I haven't thought of
+ * anything more wonderful yet. -M@
+ */
+void cache_drop_metadata(const char *vpath)
+{
+	bucket_t *bucket;
+
+  	/* Lookup the item */
+  	bucket = &cache_hash_table[CACHE_HASH(vpath)];
+  	// nuke it.
+	bucket->b_contents=NULL;
+	
+}
+
+/*
  * Try to find the path composed of the maximal number of elements of the
  * array that will have a cache hit. Return the count, and the metadata. It
  * returns a count of -1 if there is no hit at all.

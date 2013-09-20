@@ -2,6 +2,7 @@
  * cpyfs - copy on write filesystem
  * Copyright (C) 2004 Nicolas Vigier <boklm@mars-attacks.org>
  *                    Thomas Joubert <widan@net-42.eu.org>
+ * Portions (C) 2006 Matthew (M@) Keller <m@cognusion.com>
  * This program can be distributed under the terms of the GNU GPL.
  * See the file COPYING.
 */

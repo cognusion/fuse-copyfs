@@ -5,13 +5,39 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <fuse.h>
+#include <unistd.h>
 
 #include "helper.h"
 #include "structs.h"
 #include "write.h"
 #include "rcs.h"
 #include "ea.h"
+#include "cache.h"
 
+/*
+ * frees metadata, I guess.. Stolen from main.c...
+ * This should go into some other .c file, but I'll be damned
+ * if I can decide which one...
+ * 	--M@
+ */
+void free_metadata(metadata_t *metadata)
+{
+  version_t *version, *next;
+
+  version = metadata->md_versions;
+  
+  while (version)
+    {
+      next = version->v_next;
+      free(version->v_rfile);
+      free(version);
+      version = next;
+    }
+  if (metadata->md_vpath)
+    helper_free_array(metadata->md_vpath);
+  free(metadata->md_vfile);
+  free(metadata);
+}
 
 /*
  * We support extended attributes to allow user-space scripts to manipulate
@@ -22,6 +48,8 @@
  *  - rcs.locked_version : the current locked version for the file
  *  - rcs.metadata_dump  : a dump of the metadata, for scripts that need
  *                         to list the available versions.
+ *  - rcs.purge			 : this is an ungettable attribute that purges
+ * 						   copies of - or all of - a file.
  */
 
 /*
@@ -32,12 +60,130 @@ int callback_setxattr(const char *path, const char *name, const char *value,
 {
   metadata_t *metadata;
   version_t *version;
-
+	
   metadata = rcs_translate_to_metadata(path, rcs_version_path);
   if (!metadata)
     return -ENOENT;
 
-  if (!strcmp(name, "rcs.locked_version"))
+  if (!strcmp(name,"rcs.purge"))
+  	{
+  		/*
+  		 * We've been asked to purge a file, let's do it..
+  		 * I don't profess this to be great C.. There may
+  		 * even be problems with it... It's working for me,
+  		 * and I use it on a very active directory tree 
+  		 * (my Eclipse development tree...). I do purges
+  		 * and whatnot frequently. Feel free to clean up
+  		 * as seen fit... I hate C. Please let me know of
+  		 * changes! --M@
+  		 */
+  		
+  		//The below is because value may not be nultermed... ugh
+  		char *local;
+  		local = safe_malloc(size + 1);
+      	local[size] = '\0';
+      	memcpy(local, value, size);
+
+		// Get the raw path
+		char *rpath = rcs_translate_path(path, rcs_version_path);
+  		if (!rpath)
+    		return -ENOENT;
+    		
+    	// Get the raw directory
+  		char *rfdir=helper_extract_dirname(rpath);
+  		// Get the original filename
+  		char *rfname=helper_extract_filename(path);	
+  	
+  		// Build the full path to the metadatafile
+  		char *mdfile=(char *)malloc((strlen(rfdir) + 1 + strlen("metadata.") + strlen(rfname) + 1)*sizeof(char));
+  		strcpy(mdfile,rfdir);
+  		strcat(mdfile,"/metadata.");
+  		strcat(mdfile,rfname);
+  		
+  		int c=0; // to count how many versions to delete
+
+
+		// Count the number of versions there are
+  		version = metadata->md_versions;
+  		version_t *v=version;
+  		int vnum=1; // number of versions
+  		while(v->v_next) { 
+  			v=v->v_next;
+  			vnum++; 
+  		}
+  		v=version; // reset
+  		
+  		if(!strcmp(local,"A")) {
+  			// Delete them all
+  			c=vnum;
+  		} else {	 
+  			// we have a number, so set c to it
+  			c=atoi(local);
+  		}
+  		
+  		/* Let's do this... Crawl through the list, nulling
+  		 * next's and unlinking files
+  		 */
+  		version_t *next;
+  		if(c >= vnum) {
+  			// we're toasting them all...
+  			while(v) {			
+  				//unlink file.. scary!
+  				unlink(v->v_rfile);
+  				
+  				next=v->v_next;
+  				v->v_next=NULL;
+  				v=next;
+  			}
+  			metadata->md_versions = NULL;
+  		} else {
+  			// cull
+  			vnum-=c; // number of versions we want to _keep_.
+  			while(v) {
+  				if(vnum > 1) {
+  					//next
+  					vnum--;
+  					v=v->v_next;
+  				} else {
+  					//null the next, and nuke the next file
+  					next=v->v_next;
+  					v->v_next=NULL;
+  					v=next;
+
+  					if(v) {
+  						//unlink file.. scary!
+  						unlink(v->v_rfile);
+  					}
+  				}
+  			}
+  			/* This isn't strictly necessary, but we've
+  			 * been mucking around in version a lot, so
+  			 * let's just do it.
+  			 */
+  			metadata->md_versions=version;
+  		}
+  		
+  		if(metadata->md_versions == NULL) {
+  			// Free the metadata from cache
+  			cache_drop_metadata(metadata->md_vfile);
+  			free_metadata(metadata);
+  			// kill the metadata file too.. SCARY!!!
+  			unlink(mdfile);
+  			
+  		} else {
+  			// We've made changes to the metadata, and got at least one
+  			// version left.. need to update it
+  			if (write_metadata_file(mdfile, metadata) == -1) {
+    			free(mdfile);
+    			return -errno;
+  			}
+  		}
+  		//free(mdfile);
+
+  		return 0;
+  		
+  	}
+  else if (!strcmp(name, "rcs.locked_version"))
     {
       struct fuse_context *context;
       unsigned int length;
