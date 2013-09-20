@@ -1,0 +1,414 @@
+#!/usr/bin/perl -w
+
+# copyfs - copy on write filesystem  http://n0x.org/copyfs/
+# Copyright (C) 2004 Nicolas Vigier <boklm@mars-attacks.org>
+#                    Thomas Joubert <widan@net-42.eu.org>
+# This program can be distributed under the terms of the GNU GPL.
+# See the file COPYING.
+
+use strict;
+use warnings;
+
+use IPC::Open3;
+use IO::Select;
+
+use POSIX qw(strftime);
+use Fcntl ':mode';
+use File::Basename;
+use File::stat;
+
+use Errno;
+
+use Getopt::Std;
+
+
+#
+# Run a command, and returns both output and error.
+#
+sub run_command($)
+{
+    my $command = shift;
+    my ($output, $error);
+    my $selector;
+    my $pid;
+
+    $output = "";
+    $error = "";
+    $pid = open3(*INPUT, *OUTPUT, *ERROR, $command);
+
+    # No input
+    close(INPUT);
+
+    $selector = IO::Select->new();
+    $selector->add(*ERROR, *OUTPUT);
+
+    # Get what gets passed on the descriptors
+    while (my @ready = $selector->can_read)
+    {
+	foreach my $fh (@ready)
+	{
+	    if (fileno($fh) == fileno(ERROR))
+	    {
+		$error .= scalar(<ERROR>);
+	    }
+	    else
+	    {
+		$output .= scalar(<OUTPUT>);
+	    }
+	    $selector->remove($fh) if eof($fh);
+	}
+    }
+
+    close(OUTPUT);
+    close(ERROR);
+
+    # Kill the zombie
+    waitpid($pid, 0);
+
+    return ($output, $error);
+}
+
+#
+# Get an extended attribute.
+#
+sub get_ea($$)
+{
+    my ($file, $name) = @_;
+    my ($output, $error);
+    my $cmd;
+
+    $cmd = "getfattr -h -n '$name' --only-values -- '$file'";
+    ($output, $error) = run_command($cmd);
+    $error =~ s/^getfattr: // if $error;
+    return ($output, $error);
+}
+
+#
+# Set an extended attribute.
+#
+sub set_ea($$$)
+{
+    my ($file, $name, $value) = @_;
+    my ($output, $error);
+    my $cmd;
+
+    $cmd = "setfattr -h -n '$name' -v '$value' -- '$file'";
+    ($output, $error) = run_command($cmd);
+    $error =~ s/^setfattr: // if $error;
+    return ($output, $error);
+}
+
+#
+# Get current version number.
+#
+sub get_current_version($)
+{
+    my $file = shift;
+    my ($value, $error);
+
+    ($value, $error) = get_ea($file, "rcs.locked_version");
+    die "$0: $error" if $error;
+    return split(/\./, $value);
+}
+
+#
+# Set current version number.
+#
+sub set_current_version($$$)
+{
+    my ($file, $vid, $svid) = @_;
+
+    my ($value, $error) = set_ea($file, "rcs.locked_version", "$vid.$svid");
+    die "$0: $error" if $error;
+}
+
+#
+# Dump a mode into an ls-like string.
+#
+sub get_perms($)
+{
+    my $mode = shift;
+    my $result = "";
+
+    # Type
+    $result .= "s" if S_ISSOCK($mode);
+    $result .= "l" if S_ISLNK($mode);
+    $result .= "-" if S_ISREG($mode);
+    $result .= "b" if S_ISBLK($mode);
+    $result .= "d" if S_ISDIR($mode);
+    $result .= "c" if S_ISCHR($mode);
+    $result .= "p" if S_ISFIFO($mode);
+
+    # Mode for owner
+    $result .= (($mode & S_IRUSR) ? "r" : "-");
+    $result .= (($mode & S_IWUSR) ? "w" : "-");
+    $result .= (($mode & S_ISUID) ? (($mode & S_IXUSR) ? "s" : "S") :
+		(($mode & S_IXUSR) ? "x" : "-"));
+
+    # Mode for group
+    $result .= (($mode & S_IRGRP) ? "r" : "-");
+    $result .= (($mode & S_IWGRP) ? "w" : "-");
+    $result .= (($mode & S_ISGID) ? (($mode & S_IXGRP) ? "s" : "S") :
+		(($mode & S_IXGRP) ? "x" : "-"));
+
+    # Mode for group
+    $result .= (($mode & S_IROTH) ? "r" : "-");
+    $result .= (($mode & S_IWOTH) ? "w" : "-");
+    $result .= (($mode & S_ISVTX) ? (($mode & S_IXOTH) ? "t" : "T") :
+		(($mode & S_IXGRP) ? "x" : "-"));
+
+    return $result;
+}
+
+#
+# Dump the owner in string form.
+#
+sub dump_owner($)
+{
+    my $uid = shift;
+    my $value;
+
+    $value = getpwuid($uid);
+    return $value if $value;
+    return "$uid";
+}
+
+#
+# Dump the group in string form.
+#
+sub dump_group($)
+{
+    my $gid = shift;
+    my $value;
+
+    $value = getgrgid($gid);
+    return $value if $value;
+    return "$gid";
+}
+
+#
+# Dump the version information for a file.
+#
+sub dump_versions($)
+{
+    my $file = shift;
+
+    # Get the active revision
+    my ($cvid, $csvid) = get_current_version($file);
+
+    # Get the attribute
+    my ($value, $error) = get_ea($file, "rcs.metadata_dump");
+    die "$0: $error" if $error;
+
+    printf("File %s (%s is active) :\n", $file,
+	   ($cvid != -1) ? "'*'" : "last");
+
+    # Explode the attributes
+    my @versions = reverse(split(/\|/, $value));
+    foreach my $vstring (@versions)
+    {
+	my ($vid, $svid, $mode, $uid, $gid, $size,
+	    $mtime) = split(/:/, $vstring);
+
+	# Display it
+	printf("  v%-4.4s : %s  %-8.8s %-8.8s %10i %s", "$vid.$svid",
+	       get_perms($mode), dump_owner($uid), dump_group($gid),
+	       $size, strftime("%c", localtime($mtime)));
+
+	printf(" [*]") if (($cvid == $vid) && ($csvid == $svid));
+	printf("\n");
+    }
+}
+
+#
+# Generate the tag data for a directory
+#
+sub generate_tag_file_for_directory
+{
+    my ($fh, $directory) = @_;
+    my @dirs = ();
+
+    # Find files and directories
+    opendir(DIR, $directory) or die "$0: Can't open directory !\n";
+    while (my $item = readdir(DIR))
+    {
+	if (($item ne ".") && ($item ne ".."))
+	{
+	    my ($vid, $svid) = get_current_version("$directory/$item");
+	    my $st = lstat("$directory/$item");
+
+	    push @dirs, $item if (S_ISDIR($st->mode));
+	    print $fh "$directory/$item|$vid.$svid\n";
+	}
+    }
+    closedir(DIR);
+
+    # Iterate over directories
+    for my $item (@dirs)
+    {
+	generate_tag_file_for_directory($fh, "$directory/$item");
+    }
+}
+
+#
+# Generate the tag data
+#
+sub generate_tag_file($$)
+{
+    my ($root, $tagname) = @_;
+    my $fh;
+
+    open $fh, ">$tagname" or die "$0: Can't open tagfile !\n";
+    generate_tag_file_for_directory($fh, $root);
+    close $fh;
+}
+
+#
+# Restore a tag file
+#
+sub restore_tag_file($$)
+{
+    my ($root, $tagname) = @_;
+
+    # Create the root dir if it does no exist
+    if (!lstat($root))
+    {
+	print "Creating root directory $root\n";
+	mkdir($root);
+    }
+
+    open TAG, $tagname or die "$0: Can't open tagfile !\n";
+    while (my $line = <TAG>)
+    {
+	if ($line =~ m/^([^\|]+)\|(\d+).(\d+)/)
+	{
+	    my ($file, $vid, $svid) = ($1, $2, $3);
+
+	    if ($file !~ m/^\Q$root\E\//)
+	    {
+		print STDERR "$0: you are trying to put a tag in a different ";
+		print STDERR "directory !\n";
+		exit(1);
+	    }
+
+	    my $st = lstat($file);
+
+	    if (!$st)
+	    {
+		my $done = 0;
+
+		# It can take some time to change files back into directories
+		# since fuse caches the lookup info for about one second, so
+		# we retry here.
+		do
+		{
+		    # Touch the file first, since it does not exist
+		    if (!open(FILE, ">$file"))
+		    {
+			# "Not a directory" ignored
+			print STDERR "$0: could not touch $file !\n"
+			    if (!$!{ENOTDIR});
+		    }
+		    else
+		    {
+			$done = 1;
+			close(FILE);
+		    }
+		}
+		while (!$done && $!{ENOTDIR});
+	    }
+
+	    # Fix version
+	    set_current_version($file, $vid, $svid);
+
+	    printf("Restored $file to version $vid.$svid\n");
+	}
+    }
+
+    close TAG;
+}
+
+
+
+# Strip the path
+$0 = basename($0);
+
+my %options = ();
+
+# Parse command line
+getopts("ghl:rst:u:", \%options);
+
+if ($options{h})
+{
+    printf("Usage: $0 [-h] [-r] [-s] [-l version] [-g] file\n");
+    printf("\n");
+    printf("  -h           Show this help\n");
+
+    # Version management
+    printf("  -r           Release the version lock\n");
+    printf("  -s           Show the versions for this file (default)\n");
+    printf("  -g           Get the version number in use\n");
+    printf("  -l version   Lock this version\n");
+
+    # Tagging
+    printf("  -t tagfile   Create a tag file\n");
+    printf("  -u tagfile   Restore a tag file\n");
+    exit(0);
+}
+
+# We need a file there
+if (scalar(@ARGV) != 1)
+{
+    print STDERR "$0: You need to specify one file to operate on.\n";
+    exit(1);
+}
+
+# Show by default
+$options{s} = 1
+    if (!$options{r} && !$options{g} && !$options{s} && !$options{l} &&
+	!$options{t} && !$options{u});
+
+if ($options{r})
+{
+    set_current_version($ARGV[0], -1, -1);
+    exit(0);
+}
+
+if ($options{g})
+{
+    my ($vid, $svid) = get_current_version($ARGV[0]);
+    print "$vid.$svid\n";
+    exit(0);
+}
+
+if ($options{s})
+{
+    dump_versions($ARGV[0]);
+    exit(0);
+}
+
+if ($options{l})
+{
+    if ($options{l} =~ m/^(\d+).(\d+)$/)
+    {
+	set_current_version($ARGV[0], $1, $2);
+	exit(0);
+    }
+    else
+    {
+	print STDERR "$0: This version number is incorrect (format is x.y)\n";
+	exit(1);
+    }
+}
+
+if ($options{t})
+{
+    generate_tag_file($ARGV[0], $options{t});
+    exit(0);
+}
+
+if ($options{u})
+{
+    restore_tag_file($ARGV[0], $options{u});
+    exit(0);
+}

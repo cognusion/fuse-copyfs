@@ -1,0 +1,37 @@
+.TH COPYFS-FVERSION "1" "October 2006" "copyfs-fversion" "User Commands"
+.SH NAME
+copyfs-fversion
+.SH SYNOPSIS
+.B copyfs-fversion [-h] [-r] [-s] [-l version] [-g] file
+[\fIOPTIONS\fR]...
+.SH DESCRIPTION
+This is the copyfs-fversion program. This programs lets you see and change versions informations on files hosted on a copyfs file system.
+.TP
+\fB\-h\fR
+Print help and exit
+.TP
+\fB\-r\fR
+Release the version lock
+.TP
+\fB\-s\fR
+Show the versions available for this file (default action)
+.TP
+\fB\-g\fR
+Get the version number in use
+.TP
+\fB\-l\fR \fIversion\fR
+Lock this version
+.TP
+\fB\-t\fR \fItagfile\fR
+Create a tagfile. This tagfile will contain the versions informations about the selected files. You can then restore thoses version later using this tagfile.
+.TP
+\fB\-u\fR \fItagfile\fR
+Restore a tagfile.
+.SH AUTHORS
+CopyFS was created by Thomas Joubert and Nicolas Vigier <boklm@mars-attacks.org>
+.SH "MORE INFOS"
+
+http://n0x.org/copyfs/
+
+.SH SEE ALSO
+copyfs(1), copyfs-mount(1), copyfs-daemon(1)

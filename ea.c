@@ -1,3 +1,11 @@
+/*
+ * copyfs - copy on write filesystem  http://n0x.org/copyfs/
+ * Copyright (C) 2004 Nicolas Vigier <boklm@mars-attacks.org>
+ *                    Thomas Joubert <widan@net-42.eu.org>
+ * This program can be distributed under the terms of the GNU GPL.
+ * See the file COPYING.
+*/
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <attr/xattr.h>

@@ -1,0 +1,22 @@
+Thoses features are planned for CopyFS 1.1 :
+- new fversion options :
+  * fversion cat file version_of_file
+  * fversion delete file version_of_file
+- new options when mounting the file system :
+  * max number of versions to keep
+  * max size to keep
+  * what should be the oldest backup we keep
+- logging options
+- use diff between files, instead of keeping a full copy for each version.
+
+
+For CopyFS 1.0.2 (only bugfix), the following bugs should be fixed :
+ - When creating a file inside a suid directory, the new file should be
+   in the same group as the directory.
+ - When you delete a file, and create it again, permission is taken from
+   the old file instead of using umask.
+ - When trying to mount a version-directory that does not exist,
+   copyfs-daemon exit without an error, and the directory still appears
+   to be mounted. This should be fixed, and more checks should be added
+   in copyfs-mount.
+

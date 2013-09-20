@@ -1,0 +1,60 @@
+#!/bin/sh
+
+# copyfs - copy on write filesystem  http://n0x.org/copyfs/
+# Copyright (C) 2004 Nicolas Vigier <boklm@mars-attacks.org>
+#                    Thomas Joubert <widan@net-42.eu.org>
+# This program can be distributed under the terms of the GNU GPL.
+# See the file COPYING.
+
+FILESYSTEM_HANDLER=copyfs-daemon
+
+# Force single-threaded mode, as we aren't MT safe
+FILESYSTEM_PARAMETERS="-s"
+
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 version-directory mount-point" 1>&2
+    exit 1
+fi
+
+if ! echo "$1" | grep '^/'
+then
+   echo "Please use absolute path" 1>&2
+   exit 1
+fi
+
+# Check fuse module
+if ! grep fuse /proc/modules > /dev/null; then
+    if [ $UID = 0 ]; then
+	modprobe fuse > /dev/null || {
+	    echo "Could not load fuse kernel module !" 1>&2
+	    exit 1
+	}
+    else
+	echo "You need the fuse kernel module to run this. As you are"
+	echo "not root, I can't load it. Become root and run :"
+	echo
+	echo "    modprobe fuse"
+	exit 1
+    fi
+fi
+
+if [ $UID == 0 ]; then
+    # Allow other users and check permissions if run by root
+    FILESYSTEM_PARAMETERS="${FILESYSTEM_PARAMETERS} -o default_permissions,allow_other"
+fi
+
+# Check if version dir sane
+if [ ! -w $1 -o ! -x $1 ]; then
+    echo "Your version directory needs to be writable and executable" 1>&1
+    exit 2
+fi
+
+# Check if there is the root directory metadata, else create it
+if [ ! -f $1/metadata. ]; then
+    echo "1:0:0755:0:0:$(basename $1)" > "$1/metadata."
+    chmod 700 "$1/metadata."
+fi
+
+# Run the daemon
+export RCS_VERSION_PATH="$1"
+eval ${FILESYSTEM_HANDLER} "${FILESYSTEM_PARAMETERS}" "$2"
