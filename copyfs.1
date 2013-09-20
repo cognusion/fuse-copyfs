@@ -1,0 +1,26 @@
+.TH COPYFS "1" "October 2006" "copyfs" "Versionned File System"
+.SH NAME
+copyfs
+.SH DESCRIPTION
+CopyFS is a copy-on-write, versionned file system. This file system is usefull for example when you have a directory containing important files, for which you want to track changes, and be able to revert to an older version. CopyFS lets you do that by transparently making backups of each file that you modify. You are then able to see what version are available for a file, and get an older version.
+
+The main commands related to CopyFS are :
+.TP
+\fBcopyfs-mount\fR :
+The command that you should use to mount a CopyFS file system.
+.TP
+\fBcopyfs-daemon\fR :
+The CopyFS file system itself. You should not have to run it by yourself, instead use the copyfs-mount command.
+.TP
+\fBcopyfs-fversion\fR :
+The command that you should use when you want to check which version are available for a file, and maybe revert to an older version.
+.SH HISTORY
+CopyFS 1.0 was released in December 2004.
+.SH AUTHORS
+CopyFS was created by Thomas Joubert and Nicolas Vigier <nv@n0x.org>
+.SH "MORE INFOS"
+
+http://n0x.org/copyfs/
+
+.SH SEE ALSO
+copyfs-fversion(1), copyfs-mount(1), copyfs-daemon(1)

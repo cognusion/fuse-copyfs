@@ -1,3 +1,11 @@
+/*
+ * copyfs - copy on write filesystem  http://n0x.org/copyfs/
+ * Copyright (C) 2004 Nicolas Vigier <boklm@mars-attacks.org>
+ *                    Thomas Joubert <widan@net-42.eu.org>
+ * This program can be distributed under the terms of the GNU GPL.
+ * See the file COPYING.
+*/
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
@@ -61,7 +69,7 @@ int main(int argc, char **argv)
   if (!rcs_version_path)
     {
       fprintf(stderr, "RCS_VERSION_PATH not defined in environment.\n");
-      fprintf(stderr, "You really should use he `fmount' script.\n");
+      fprintf(stderr, "You really should use he `copyfs-mount' script.\n");
       exit(1);
     }
 

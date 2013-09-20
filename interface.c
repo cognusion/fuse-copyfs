@@ -1,5 +1,5 @@
 /*
- * cpyfs - copy on write filesystem
+ * copyfs - copy on write filesystem  http://n0x.org/copyfs/
  * Copyright (C) 2004 Nicolas Vigier <boklm@mars-attacks.org>
  *                    Thomas Joubert <widan@net-42.eu.org>
  * Portions (C) 2006 Matthew (M@) Keller <m@cognusion.com>

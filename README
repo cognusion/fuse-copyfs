@@ -8,14 +8,19 @@
      Y8a.    .a8P "8a,   ,a8" 88b,   ,a8"   `8b,d8'   88         Y8a     a8P
       `"Y8888Y"'   `"YbbdP"'  88`YbbdP"'      Y88'    88          "Y88888P"
                               88              d8'
-                              88             d8'
+                              88             d8' 		       
 
                     A copy-on-write, versionned filesystem
                                 Version 1.3M
 
                                     By
                                Nicolas Vigier
+                          (boklm@mars-attacks.org)
+                                   and
                                Thomas Joubert
+                           (widan@net-42.eu.org)
+
+                           http://n0x.org/copyfs/
 
                              Contributions From:
                                Matthew Keller
@@ -33,15 +38,19 @@ its control.
 It also allows a user to select an old version of the files, for example to
 repair a mistake, and allows him/her to continue edition from this point.
 
+CopyFS is distributed under the terms of the GNU GPL.
 
 System requirements
 -------------------
 
-You need a Linux-based system, with at least version 2.0 of the Fuse libraries
-and kernel module. You can download Fuse at http://fuse.sourceforge.net. You
-also need the support for filesystem extended attributes compiled in your
-kernel.
+Filesystem in Userspace (FUSE) is required to use this filesystem. FUSE
+was merged into the mainstream Linux kernel tree in kernel version 2.6.14,
+so any version >= 2.6.14 should be fine, if the option was selected when
+the kernel was compiled.
 
+More informations about FUSE is available on http://fuse.sourceforge.net/
+
+It might work on FreeBSD and OpenSolaris too, but we never tried yet.
 
 How to install
 --------------
@@ -58,25 +67,25 @@ copyfs-1.0 # make install
 How to use
 ----------
 
-To mount a CopyFS, you need to use the command 'fmount' : if you want to
+To mount a CopyFS, you need to use the command 'copyfs-mount' : if you want to
 mount a CopyFS at '/mnt/fs', whose version directory is at /var/versions, you
 would use :
 
-root # fmount /var/versions /mnt/fs
+root # copyfs-mount /var/versions /mnt/fs
 
 To unmount it, simply do :
 
 root # umount /mnt/fs
 
-As you would do for a normal filesystem.
+As you would do for any filesystem.
 
 
 Accessing old versions
 ----------------------
 
-To know which versions are available, you can use the fversion tool :
+To know which versions are available, you can use the copyfs-fversion tool :
 
-cpy-fs $ fversion test
+cpy-fs $ copyfs-fversion test
 File test ('*' is active) :
   v1.0  : -rw-r--r--  widan    users             0 Fri Dec 10 14:17:47 2004
   v2.0  : -rw-r--r--  widan    users            21 Fri Dec 10 14:17:55 2004
@@ -89,14 +98,14 @@ you can 'lock' it :
 
 cpy-fs $ cat test
 version 3.0
-cpy-fs $ fversion -l 2.0 test
+cpy-fs $ copyfs-fversion -l 2.0 test
 cpy-fs $ cat test
 version 2.0
 
 If you want to remove the version lock, and return to the latest version
 available, use :
 
-cpy-fs $ fversion -r test
+cpy-fs $ copyfs-fversion -r test
 
 
 Tagging files
@@ -104,16 +113,16 @@ Tagging files
 
 Let's say you have the following file tree :
 
-cpy-fs $ fversion somedir/file-1
+cpy-fs $ copyfs-fversion somedir/file-1
 File file-1 ('*' is active) :
   v1.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:41 2004
   v2.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:43 2004 [*]
   v3.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:45 2004
-cpy-fs $ fversion somedir/file-2
+cpy-fs $ copyfs-fversion somedir/file-2
 File file-2 ('*' is active) :
   v1.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:51 2004 [*]
   v2.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:53 2004
-cpy-fs $ fversion somedir/file-3
+cpy-fs $ copyfs-fversion somedir/file-3
 File file-3 ('*' is active) :
   v1.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:58 2004
   v2.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:22:03 2004 [*]
@@ -130,12 +139,12 @@ cpy-fs $ cat somedir/file-3
 Suppose you want to save all the "current" versions for the directory
 'somedir', you can create a tag file with :
 
-cpy-fs $ fversion -t tag-file somedir
+cpy-fs $ copyfs-fversion -t tag-file somedir
 
 Then you can edit the files as you want, and if you want to put all the files
 back to the version they were at when you tagged them, simply do :
 
-cpy-fs $ fversion -u tag-file somedir
+cpy-fs $ copyfs-fversion -u tag-file somedir
 
 Example :
 
@@ -145,8 +154,8 @@ cpy-fs $ cat somedir/file-{1,2,3}
 new 1
 new 2
 3 v2
-cpy-fs $ fversion -t tag-file-new somedir
-cpy-fs $ fversion -u tag-file somedir
+cpy-fs $ copyfs-fversion -t tag-file-new somedir
+cpy-fs $ copyfs-fversion -u tag-file somedir
 Restored somedir/file-1 to version 2.0
 Restored somedir/file-2 to version 1.0
 Restored somedir/file-3 to version 2.0
@@ -154,7 +163,7 @@ cpy-fs $ cat somedir/file-{1,2,3}
 v2
 2 v1
 3 v2
-cpy-fs $ fversion -u tag-file-new somedir
+cpy-fs $ copyfs-fversion -u tag-file-new somedir
 Restored somedir/file-1 to version 6.0
 Restored somedir/file-2 to version 3.0
 Restored somedir/file-3 to version 2.0
@@ -168,23 +177,23 @@ Viewing the changes between version of text files
 
 Example:
 
-[kellermg@mlap2 workspace]$ echo "Hello world" > testfile
-[kellermg@mlap2 workspace]$ echo "There's always room for JELLO" >> testfile
-[kellermg@mlap2 workspace]$ fversion testfile
+[workspace]$ echo "Hello world" > testfile
+[workspace]$ echo "There's always room for JELLO" >> testfile
+[workspace]$ copyfs-fversion testfile
 File testfile ('*' is active) :
   v1.0  : -rw-rw-r--  kellermg kellermg         12 Mon 13 Feb 2006 12:59:28 PM EST
   v2.0  : -rw-rw-r--  kellermg kellermg         42 Mon 13 Feb 2006 12:59:55 PM EST [*]
-[kellermg@mlap2 workspace]$ fversion -d 1.0,2.0 testfile
+[workspace]$ copyfs-fversion -d 1.0,2.0 testfile
 2 -
 2 + There's always room for JELLO
 --------
-[kellermg@mlap2 workspace]$ cat testfile
+[workspace]$ cat testfile
 Hello world
 There's always room for JELLO
 
 We will balk if you try to diff a binary file:
 
-[kellermg@mlap2 copyfs]$ fversion -d 41.0,53.0 fcopyfs-daemon
+[copyfs]$ copyfs-fversion -d 41.0,53.0 copyfs-daemon
 I will not diff binary files
 
 Searching (ala grep) for a pattern in all version of a text file
@@ -192,13 +201,13 @@ Searching (ala grep) for a pattern in all version of a text file
 
 Example:
 
-[kellermg@mlap2 workspace]$ echo "Hello world" > testfile
-[kellermg@mlap2 workspace]$ echo "There's always room for JELLO" >> testfile
-[kellermg@mlap2 workspace]$ echo "Thanks for all the fish" >> testfile
-[kellermg@mlap2 workspace]$ echo "So long" >> testfile
-[kellermg@mlap2 workspace]$ echo "Blah Blah Blah" >> testfile
-[kellermg@mlap2 workspace]$ echo "Another fish" >> testfile
-[kellermg@mlap2 workspace]$ fversion -G fish testfile
+[workspace]$ echo "Hello world" > testfile
+[workspace]$ echo "There's always room for JELLO" >> testfile
+[workspace]$ echo "Thanks for all the fish" >> testfile
+[workspace]$ echo "So long" >> testfile
+[workspace]$ echo "Blah Blah Blah" >> testfile
+[workspace]$ echo "Another fish" >> testfile
+[workspace]$ copyfs-fversion -G fish testfile
 Do not mess with this file... search in progress...
 v3.0: Thanks for all the fish
 v4.0: Thanks for all the fish
@@ -209,7 +218,7 @@ v6.0: Another fish
 
 You can also search for a regexp!:
 
-[kellermg@mlap2 workspace]$ fversion -G ^Blah testfile
+[workspace]$ copyfs-fversion -G ^Blah testfile
 Do not mess with this file... search in progress...
 v5.0: Blah Blah Blah
 v6.0: Blah Blah Blah
@@ -222,7 +231,7 @@ Purging of folders not yet supported... maybe someday. The recursions necessary 
 
 Example:
 
-[kellermg@mlap2 workspace]$ fversion testfile
+[workspace]$ copyfs-fversion testfile
 File testfile ('*' is active) :
   v1.0  : -rw-rw-r--  kellermg kellermg         12 Mon 13 Feb 2006 12:59:28 PM EST
   v2.0  : -rw-rw-r--  kellermg kellermg         42 Mon 13 Feb 2006 12:59:55 PM EST
@@ -230,8 +239,8 @@ File testfile ('*' is active) :
   v4.0  : -rw-rw-r--  kellermg kellermg         74 Mon 13 Feb 2006 01:04:44 PM EST
   v5.0  : -rw-rw-r--  kellermg kellermg         89 Mon 13 Feb 2006 01:04:56 PM EST
   v6.0  : -rw-rw-r--  kellermg kellermg        102 Mon 13 Feb 2006 01:05:02 PM EST [*]
-[kellermg@mlap2 workspace]$ fversion -p 3 testfile
-[kellermg@mlap2 workspace]$ fversion testfile
+[workspace]$ copyfs-fversion -p 3 testfile
+[workspace]$ copyfs-fversion testfile
 File testfile ('*' is active) :
   v4.0  : -rw-rw-r--  kellermg kellermg         74 Mon 13 Feb 2006 01:04:44 PM EST
   v5.0  : -rw-rw-r--  kellermg kellermg         89 Mon 13 Feb 2006 01:04:56 PM EST
@@ -239,7 +248,7 @@ File testfile ('*' is active) :
 
 Or you can just kill the very existance of the file:
 
-[kellermg@mlap2 workspace]$ fversion -p A testfile
-[kellermg@mlap2 workspace]$ fversion testfile
+[workspace]$ copyfs-fversion -p A testfile
+[workspace]$ copyfs-fversion testfile
 fversion: testfile: No such file or directory
 

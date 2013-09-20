@@ -1,0 +1,20 @@
+.TH COPYFS-MOUNT "1" "October 2006" "copyfs-mount" "User Commands"
+.SH NAME
+copyfs-mount
+.SH SYNOPSIS
+.B copyfs-mount \fIversion-directory\fR \fImount-point\fR
+.SH DESCRIPTION
+This script lets you mount a copyfs file system. \fIversion-directory\fR is the directory where the files and versions informations will be stored, so choose a directory where a lot of free space is available. This directory should not be accessed by the users, to it is a good idea to put that directory inside a directory owned by root, for which you don't allow access to users. If you mount your copyfs file system for the first time, an empty directory should be fine (copyfs-mount will create the required files before running copyfs-daemon). \fImount-point\fR is the directory where the copyfs file system should be mounted. This is where the users will access the files.
+
+In order to unmount the filesystem, use the \fIfusermount\fR command :
+.IP ""
+$ fusermount \-u \fImount-point\fR
+
+.SH AUTHORS
+CopyFS was created by Thomas Joubert and Nicolas Vigier <boklm@mars-attacks.org>
+.SH "MORE INFOS"
+
+http://n0x.org/copyfs/
+
+.SH SEE ALSO
+copyfs(1), copyfs-fversion(1), copyfs-daemon(1)

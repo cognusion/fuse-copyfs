@@ -1,4 +1,9 @@
-TARGET	= fcopyfs-daemon
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+mandir=@mandir@
+
+
+TARGET	= copyfs-daemon
 SRC	= cache.c	\
 	  create.c	\
 	  ea.c		\
@@ -16,8 +21,9 @@ HEADERS	= cache.h	\
 	  rcs.h		\
 	  structs.h	\
 	  write.h
-SCRIPTS = fmount fversion
+SCRIPTS = copyfs-mount copyfs-fversion
 EXTRA	= $(SCRIPTS) Makefile.in configure.in configure README
+MANPAGES= copyfs.1 copyfs-daemon.1 copyfs-mount.1 copyfs-fversion.1
 OBJ	= $(SRC:.c=.o)
 
 CC	= gcc
@@ -27,8 +33,11 @@ LIBS	= -lfuse
 all: $(TARGET)
 
 install: $(TARGET) $(SCRIPTS)
-	install -o root -g root -m 755 $(TARGET) /usr/local/bin
-	install -o root -g root -m 755 $(SCRIPTS) /usr/local/bin
+	install -d $(bindir)
+	install -m 755 $(TARGET) $(bindir)
+	install -m 755 $(SCRIPTS) $(bindir)
+	install -d $(mandir)/man1
+	install -m 644 $(MANPAGES) $(mandir)/man1
 
 clean:
 	rm -f *~ $(OBJ) \#*\#
