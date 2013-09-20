@@ -8,7 +8,7 @@
      Y8a.    .a8P "8a,   ,a8" 88b,   ,a8"   `8b,d8'   88         Y8a     a8P
       `"Y8888Y"'   `"YbbdP"'  88`YbbdP"'      Y88'    88          "Y88888P"
                               88              d8'
-                              88             d8' 		       
+                              88             d8'     	       
 
                     A copy-on-write, versionned filesystem
                                 Version 1.3.1M
@@ -24,6 +24,7 @@
 
                              Contributions From:
                                Matthew Keller
+                     https://github.com/cognusion/copyfs
 
 CopyFS aims to solve a common problem : given a directory, especially one
 full of configuration files, or other files that one can modify, and which
@@ -57,11 +58,11 @@ How to install
 
 Simply do :
 
-copyfs-1.0 % ./configure
-copyfs-1.0 % make all
-copyfs-1.0 % su
-Password:
-copyfs-1.0 # make install
+    copyfs-1.0 % ./configure
+    copyfs-1.0 % make all
+    copyfs-1.0 % su
+    Password:
+    copyfs-1.0 # make install
 
 
 How to use
@@ -71,11 +72,11 @@ To mount a CopyFS, you need to use the command 'copyfs-mount' : if you want to
 mount a CopyFS at '/mnt/fs', whose version directory is at /var/versions, you
 would use :
 
-root # copyfs-mount /var/versions /mnt/fs
+    root # copyfs-mount /var/versions /mnt/fs
 
 To unmount it, simply do :
 
-root # umount /mnt/fs
+    root # umount /mnt/fs
 
 As you would do for any filesystem.
 
@@ -85,27 +86,27 @@ Accessing old versions
 
 To know which versions are available, you can use the copyfs-fversion tool :
 
-cpy-fs $ copyfs-fversion test
-File test ('*' is active) :
-  v1.0  : -rw-r--r--  widan    users             0 Fri Dec 10 14:17:47 2004
-  v2.0  : -rw-r--r--  widan    users            21 Fri Dec 10 14:17:55 2004
-  v2.1  : -rwx------  widan    users            21 Fri Dec 10 14:17:55 2004
-  v3.0  : -rwx------  widan    users            29 Fri Dec 10 14:19:35 2004 [*]
+    cpy-fs $ copyfs-fversion test
+    File test ('*' is active) :
+      v1.0  : -rw-r--r--  widan    users             0 Fri Dec 10 14:17:47 2004
+      v2.0  : -rw-r--r--  widan    users            21 Fri Dec 10 14:17:55 2004
+      v2.1  : -rwx------  widan    users            21 Fri Dec 10 14:17:55 2004
+      v3.0  : -rwx------  widan    users            29 Fri Dec 10 14:19:35 2004 [*]
 
 You know there are 4 versions, with their associated information. In that state
 you are viewing version 3.0 (ie the last one). If you want to see another one,
 you can 'lock' it :
 
-cpy-fs $ cat test
-version 3.0
-cpy-fs $ copyfs-fversion -l 2.0 test
-cpy-fs $ cat test
-version 2.0
+    cpy-fs $ cat test
+    version 3.0
+    cpy-fs $ copyfs-fversion -l 2.0 test
+    cpy-fs $ cat test
+    version 2.0
 
 If you want to remove the version lock, and return to the latest version
 available, use :
 
-cpy-fs $ copyfs-fversion -r test
+    cpy-fs $ copyfs-fversion -r test
 
 
 Tagging files
@@ -113,116 +114,116 @@ Tagging files
 
 Let's say you have the following file tree :
 
-cpy-fs $ copyfs-fversion somedir/file-1
-File file-1 ('*' is active) :
-  v1.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:41 2004
-  v2.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:43 2004 [*]
-  v3.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:45 2004
-cpy-fs $ copyfs-fversion somedir/file-2
-File file-2 ('*' is active) :
-  v1.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:51 2004 [*]
-  v2.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:53 2004
-cpy-fs $ copyfs-fversion somedir/file-3
-File file-3 ('*' is active) :
-  v1.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:58 2004
-  v2.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:22:03 2004 [*]
+    cpy-fs $ copyfs-fversion somedir/file-1
+    File file-1 ('*' is active) :
+      v1.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:41 2004
+      v2.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:43 2004 [*]
+      v3.0  : -rw-r--r--  widan    users             3 Fri Dec 10 14:21:45 2004
+    cpy-fs $ copyfs-fversion somedir/file-2
+    File file-2 ('*' is active) :
+      v1.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:51 2004 [*]
+      v2.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:53 2004
+    cpy-fs $ copyfs-fversion somedir/file-3
+    File file-3 ('*' is active) :
+      v1.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:21:58 2004
+      v2.0  : -rw-r--r--  widan    users             5 Fri Dec 10 14:22:03 2004 [*]
 
 You have :
 
-cpy-fs $ cat somedir/file-1
-v2
-cpy-fs $ cat somedir/file-2
-2 v1
-cpy-fs $ cat somedir/file-3
-3 v2
+    cpy-fs $ cat somedir/file-1
+    v2
+    cpy-fs $ cat somedir/file-2
+    2 v1
+    cpy-fs $ cat somedir/file-3
+    3 v2
 
 Suppose you want to save all the "current" versions for the directory
 'somedir', you can create a tag file with :
 
-cpy-fs $ copyfs-fversion -t tag-file somedir
+    cpy-fs $ copyfs-fversion -t tag-file somedir
 
 Then you can edit the files as you want, and if you want to put all the files
 back to the version they were at when you tagged them, simply do :
 
-cpy-fs $ copyfs-fversion -u tag-file somedir
+    cpy-fs $ copyfs-fversion -u tag-file somedir
 
 Example :
 
-cpy-fs $ echo "new 1" > somedir/file-1
-cpy-fs $ echo "new 2" > somedir/file-2
-cpy-fs $ cat somedir/file-{1,2,3}
-new 1
-new 2
-3 v2
-cpy-fs $ copyfs-fversion -t tag-file-new somedir
-cpy-fs $ copyfs-fversion -u tag-file somedir
-Restored somedir/file-1 to version 2.0
-Restored somedir/file-2 to version 1.0
-Restored somedir/file-3 to version 2.0
-cpy-fs $ cat somedir/file-{1,2,3}
-v2
-2 v1
-3 v2
-cpy-fs $ copyfs-fversion -u tag-file-new somedir
-Restored somedir/file-1 to version 6.0
-Restored somedir/file-2 to version 3.0
-Restored somedir/file-3 to version 2.0
-cpy-fs $ cat somedir/file-{1,2,3}
-new 1
-new 2
-3 v2
+    cpy-fs $ echo "new 1" > somedir/file-1
+    cpy-fs $ echo "new 2" > somedir/file-2
+    cpy-fs $ cat somedir/file-{1,2,3}
+    new 1
+    new 2
+    3 v2
+    cpy-fs $ copyfs-fversion -t tag-file-new somedir
+    cpy-fs $ copyfs-fversion -u tag-file somedir
+    Restored somedir/file-1 to version 2.0
+    Restored somedir/file-2 to version 1.0
+    Restored somedir/file-3 to version 2.0
+    cpy-fs $ cat somedir/file-{1,2,3}
+    v2
+    2 v1
+    3 v2
+    cpy-fs $ copyfs-fversion -u tag-file-new somedir
+    Restored somedir/file-1 to version 6.0
+    Restored somedir/file-2 to version 3.0
+    Restored somedir/file-3 to version 2.0
+    cpy-fs $ cat somedir/file-{1,2,3}
+    new 1
+    new 2
+    3 v2
 
 Viewing the changes between version of text files
 -------------------------------------------------
 
 Example:
 
-[workspace]$ echo "Hello world" > testfile
-[workspace]$ echo "There's always room for JELLO" >> testfile
-[workspace]$ copyfs-fversion testfile
-File testfile ('*' is active) :
-  v1.0  : -rw-rw-r--  kellermg kellermg         12 Mon 13 Feb 2006 12:59:28 PM EST
-  v2.0  : -rw-rw-r--  kellermg kellermg         42 Mon 13 Feb 2006 12:59:55 PM EST [*]
-[workspace]$ copyfs-fversion -d 1.0,2.0 testfile
-2 -
-2 + There's always room for JELLO
---------
-[workspace]$ cat testfile
-Hello world
-There's always room for JELLO
+    [workspace]$ echo "Hello world" > testfile
+    [workspace]$ echo "There's always room for JELLO" >> testfile
+    [workspace]$ copyfs-fversion testfile
+    File testfile ('*' is active) :
+      v1.0  : -rw-rw-r--  kellermg kellermg         12 Mon 13 Feb 2006 12:59:28 PM EST
+      v2.0  : -rw-rw-r--  kellermg kellermg         42 Mon 13 Feb 2006 12:59:55 PM EST [*]
+    [workspace]$ copyfs-fversion -d 1.0,2.0 testfile
+    2 -
+    2 + There's always room for JELLO
+    --------
+    [workspace]$ cat testfile
+    Hello world
+    There's always room for JELLO
 
 We will balk if you try to diff a binary file:
 
-[copyfs]$ copyfs-fversion -d 41.0,53.0 copyfs-daemon
-I will not diff binary files
+    [copyfs]$ copyfs-fversion -d 41.0,53.0 copyfs-daemon
+    I will not diff binary files
 
 Searching (ala grep) for a pattern in all version of a text file
 ----------------------------------------------------------------
 
 Example:
 
-[workspace]$ echo "Hello world" > testfile
-[workspace]$ echo "There's always room for JELLO" >> testfile
-[workspace]$ echo "Thanks for all the fish" >> testfile
-[workspace]$ echo "So long" >> testfile
-[workspace]$ echo "Blah Blah Blah" >> testfile
-[workspace]$ echo "Another fish" >> testfile
-[workspace]$ copyfs-fversion -G fish testfile
-Do not mess with this file... search in progress...
-v3.0: Thanks for all the fish
-v4.0: Thanks for all the fish
-v5.0: Thanks for all the fish
-v6.0: Thanks for all the fish
-v6.0: Another fish
-5 results.
+    [workspace]$ echo "Hello world" > testfile
+    [workspace]$ echo "There's always room for JELLO" >> testfile
+    [workspace]$ echo "Thanks for all the fish" >> testfile
+    [workspace]$ echo "So long" >> testfile
+    [workspace]$ echo "Blah Blah Blah" >> testfile
+    [workspace]$ echo "Another fish" >> testfile
+    [workspace]$ copyfs-fversion -G fish testfile
+    Do not mess with this file... search in progress...
+    v3.0: Thanks for all the fish
+    v4.0: Thanks for all the fish
+    v5.0: Thanks for all the fish
+    v6.0: Thanks for all the fish
+    v6.0: Another fish
+    5 results.
 
 You can also search for a regexp!:
 
-[workspace]$ copyfs-fversion -G ^Blah testfile
-Do not mess with this file... search in progress...
-v5.0: Blah Blah Blah
-v6.0: Blah Blah Blah
-2 results.
+    [workspace]$ copyfs-fversion -G ^Blah testfile
+    Do not mess with this file... search in progress...
+    v5.0: Blah Blah Blah
+    v6.0: Blah Blah Blah
+    2 results.
 
 Purging (Culling) old versions of files
 ---------------------------------------
@@ -231,24 +232,24 @@ Purging of folders not yet supported... maybe someday. The recursions necessary 
 
 Example:
 
-[workspace]$ copyfs-fversion testfile
-File testfile ('*' is active) :
-  v1.0  : -rw-rw-r--  kellermg kellermg         12 Mon 13 Feb 2006 12:59:28 PM EST
-  v2.0  : -rw-rw-r--  kellermg kellermg         42 Mon 13 Feb 2006 12:59:55 PM EST
-  v3.0  : -rw-rw-r--  kellermg kellermg         66 Mon 13 Feb 2006 01:03:24 PM EST
-  v4.0  : -rw-rw-r--  kellermg kellermg         74 Mon 13 Feb 2006 01:04:44 PM EST
-  v5.0  : -rw-rw-r--  kellermg kellermg         89 Mon 13 Feb 2006 01:04:56 PM EST
-  v6.0  : -rw-rw-r--  kellermg kellermg        102 Mon 13 Feb 2006 01:05:02 PM EST [*]
-[workspace]$ copyfs-fversion -p 3 testfile
-[workspace]$ copyfs-fversion testfile
-File testfile ('*' is active) :
-  v4.0  : -rw-rw-r--  kellermg kellermg         74 Mon 13 Feb 2006 01:04:44 PM EST
-  v5.0  : -rw-rw-r--  kellermg kellermg         89 Mon 13 Feb 2006 01:04:56 PM EST
-  v6.0  : -rw-rw-r--  kellermg kellermg        102 Mon 13 Feb 2006 01:05:02 PM EST [*]
+    [workspace]$ copyfs-fversion testfile
+    File testfile ('*' is active) :
+      v1.0  : -rw-rw-r--  kellermg kellermg         12 Mon 13 Feb 2006 12:59:28 PM EST
+      v2.0  : -rw-rw-r--  kellermg kellermg         42 Mon 13 Feb 2006 12:59:55 PM EST
+      v3.0  : -rw-rw-r--  kellermg kellermg         66 Mon 13 Feb 2006 01:03:24 PM EST
+      v4.0  : -rw-rw-r--  kellermg kellermg         74 Mon 13 Feb 2006 01:04:44 PM EST
+      v5.0  : -rw-rw-r--  kellermg kellermg         89 Mon 13 Feb 2006 01:04:56 PM EST
+      v6.0  : -rw-rw-r--  kellermg kellermg        102 Mon 13 Feb 2006 01:05:02 PM EST [*]
+    [workspace]$ copyfs-fversion -p 3 testfile
+    [workspace]$ copyfs-fversion testfile
+    File testfile ('*' is active) :
+      v4.0  : -rw-rw-r--  kellermg kellermg         74 Mon 13 Feb 2006 01:04:44 PM EST
+      v5.0  : -rw-rw-r--  kellermg kellermg         89 Mon 13 Feb 2006 01:04:56 PM EST
+      v6.0  : -rw-rw-r--  kellermg kellermg        102 Mon 13 Feb 2006 01:05:02 PM EST [*]
 
 Or you can just kill the very existance of the file:
 
-[workspace]$ copyfs-fversion -p A testfile
-[workspace]$ copyfs-fversion testfile
-fversion: testfile: No such file or directory
+    [workspace]$ copyfs-fversion -p A testfile
+    [workspace]$ copyfs-fversion testfile
+    fversion: testfile: No such file or directory
 
