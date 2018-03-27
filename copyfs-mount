@@ -44,13 +44,13 @@ if [ $UID == 0 ]; then
 fi
 
 # Check if version dir sane
-if [ ! -w $1 -o ! -x $1 ]; then
+if [ ! -w "$1" -o ! -x "$1" ]; then
     echo "Your version directory needs to be writable and executable" 1>&1
     exit 2
 fi
 
 # Check if there is the root directory metadata, else create it
-if [ ! -f $1/metadata. ]; then
+if [ ! -f "$1/metadata." ]; then
     echo "1:0:0755:0:0:$(basename $1)" > "$1/metadata."
     chmod 700 "$1/metadata."
 fi
