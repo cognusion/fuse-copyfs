@@ -56,11 +56,13 @@ sub run_command($)
 	{
 	    if (fileno($fh) == fileno(ERROR))
 	    {
-		$error .= scalar(<ERROR>);
+		my $e = scalar(<ERROR>);
+		$error .= $e if $e;
 	    }
 	    else
 	    {
-		$output .= scalar(<OUTPUT>);
+	    my $o = scalar(<OUTPUT>);
+		$output .= $o if $o;
 	    }
 	    $selector->remove($fh) if eof($fh);
 	}
