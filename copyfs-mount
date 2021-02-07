@@ -23,8 +23,8 @@ then
 fi
 
 # Check fuse module
-if ! grep fuse /proc/modules > /dev/null; then
-    if [ $UID = 0 ]; then
+if ! ls /sys/modules | grep fuse > /dev/null; then
+    if [ $UID == 0 ]; then
 	modprobe fuse > /dev/null || {
 	    echo "Could not load fuse kernel module !" 1>&2
 	    exit 1
