@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # copyfs - copy on write filesystem  http://n0x.org/copyfs/
 # Copyright (C) 2004 Nicolas Vigier <boklm@mars-attacks.org>
