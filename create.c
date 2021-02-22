@@ -384,11 +384,12 @@ int create_copy_file(const char *source, const char *target)
     int rsize;
     char buf[1024];
     if ((src = open(source, O_RDONLY)) == -1) {
-      close(dst);
       return -4;
     }
-    if ((dst = creat(target, src_stat.st_mode)) == -1)
+    if ((dst = creat(target, src_stat.st_mode)) == -1) {
+      close(src);
       return -5;
+    }
     while ((rsize = read(src, buf, 1024))) {
       if (rsize == -1 && errno == EINTR)
 	continue ;
