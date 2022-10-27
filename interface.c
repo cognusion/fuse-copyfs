@@ -24,7 +24,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <stdlib.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #include <sys/time.h>
 #include <time.h>
 
