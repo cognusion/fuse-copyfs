@@ -346,7 +346,7 @@ int callback_getxattr(const char *path, const char *name, char *value,
 	  else
 	    st_data.st_mode &= ~07777;
 
-	  if (asprintf(&array[count], "%d:%d:%d:%d:%d:%lld:%ld",
+	  if (asprintf(&array[count], "%d:%d:%d:%d:%d:%ld:%ld",
 		       version->v_vid, version->v_svid,
 		       version->v_mode | st_data.st_mode, version->v_uid,
 		       version->v_gid, st_data.st_size, st_data.st_mtime) < 0)
