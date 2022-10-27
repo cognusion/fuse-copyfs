@@ -8,7 +8,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <attr/xattr.h>
+#include <sys/xattr.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
